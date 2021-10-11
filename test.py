@@ -20,8 +20,12 @@ info = geo[geo.census_block_group == 10010201001]
 print(info.iloc[0].latitude)
 
 #load geojson feature for a specific censusblock
-geojson_features = datasources.geojson_features()
-print("loaded.. now searching")
-for feature in geojson_features:
-    if feature["properties"]["CensusBlockCode"] == "10010201001":
-        print(feature)
+feature = datasources.geojsonByCBG("100010401001")
+print(feature)
+
+#load life expectancy
+expectancy = datasources.getCDCLifeExpectancy()
+info = expectancy[expectancy.index == 1001020100]
+print(info)
+
+
