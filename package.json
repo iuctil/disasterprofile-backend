@@ -1,0 +1,25 @@
+{
+  "name": "disasterprofile-backend",
+  "version": "1.0.0",
+  "description": "Backend services and script to transform various datasoruces and produce data used by disasterprofile frontend",
+  "main": "index.js",
+  "scripts": {
+    "api": "tsc && node api/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iuctil/disasterprofile-backend.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/iuctil/disasterprofile-backend/issues"
+  },
+  "homepage": "https://github.com/iuctil/disasterprofile-backend#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.13"
+  }
+}

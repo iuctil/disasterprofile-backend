@@ -1,13 +1,8 @@
 #!/usr/bin/python3
 
-import datasources
-
-#df = datasources.acs_census();
-#print(df)
-
-fips = datasources.fips()
 
 #lookup fips code from state/county name
+fips = datasources.fips()
 print(fips[(fips.state == 'IN') & (fips.county == 'Washington County')])
 
 #lookup state/county name from state/county fips code
