@@ -2,15 +2,20 @@
   "compilerOptions": {
     "target": "esnext",
     "useDefineForClassFields": true,
-    "module": "esnext",
+    "module": "commonjs",
     "moduleResolution": "node",
     "strict": true,
     "jsx": "preserve",
     "sourceMap": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "lib": ["esnext", "dom"]
+    "lib": ["esnext", "dom"],
+    "outDir": "deploy",
+    "typeRoots": [
+        "./@types",
+        "./node_modules/@types"
+      ] 
   },
-  "include": ["api/**/*.ts", "api/**/*.d.ts"]
+  "include": ["**/*.ts", "**/*.d.ts"]
 }
 

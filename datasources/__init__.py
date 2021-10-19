@@ -53,6 +53,11 @@ def getCDCLifeExpectancy():
 
 #columns
 #femaDeclarationString,disasterNumber,state,declarationType,declarationDate,fyDeclared,incidentType,declarationTitle,ihProgramDeclared,iaProgramDeclared,paProgramDeclared,hmProgramDeclared,incidentBeginDate,incidentEndDate,disasterCloseoutDate,fipsStateCode,fipsCountyCode,placeCode,designatedArea,declarationRequestNumber,hash,lastRefresh,id
+#
+#TODO - I think we should directly query fema api
+#  https://www.fema.gov/about/openfema/api
+#  for example https://www.fema.gov/api/open/v1/DisasterDeclarationsSummaries?$filter=state%20eq%20%27VA%27
+#
 def getFEMADisasterDeclarations():
     print("loading fema disaster declerations")
     decls = pd.read_csv("/mnt/scratch/datasources/fema/csvfiles/DisasterDeclarationsSummaries.csv")
@@ -73,3 +78,44 @@ def getNOAAStormEvents():
 
 def getZIP2FIPS():
     return pd.read_csv("/mnt/scratch/datasources/zip2fips/zip2fips.csv")
+
+#Summary Column Header	Description
+#count_property	number of properties
+#count_fema_sfha	number of properties in FEMA SHFA
+#pct_fema_sfha	percent of properties in FEMA SFHA
+#count_fs_risk_2020_5	number of First Street properties with flooding in the 2020 Return Period 5 scenario
+#pct_fs_risk_2020_5	percent of First Street  properties with flooding in the 2020 Return Period 5 scenario
+#count_fs_risk_2050_5	number of First Street properties with flooding in the 2050 Return Period 5 scenario
+#pct_fs_risk_2050_5	percent of First Street properties with flooding in the 2050 Return Period 5 scenario
+#count_fs_risk_2020_100	number of First Street properties with flooding in the 2020 Return Period 100 scenario
+#pct_fs_risk_2020_100	percent of First Street properties with flooding in the 2020 Return Period 100 scenario
+#count_fs_risk_2050_100	number of First Street properties with flooding in the 2050 Return Period 100 scenario
+#pct_fs_risk_2050_100	percent of First Street properties with flooding in the 2050 Return Period 100 scenario
+#count_fs_risk_2020_500	number of First Street properties with flooding in the 2020 Return Period 500 scenario
+#pct_fs_risk_2020_500	percent of First Street properties with flooding in the 2020 Return Period 500 scenario
+#count_fs_risk_2050_500	number of First Street properties with flooding in the 2050 Return Period 500 scenario
+#pct_fs_risk_2050_500	percent of First Street properties with flooding in the 2050 Return Period 500 scenario
+#count_fs_fema_difference_2020	absolute difference in properties at risk between First Street and FEMA in 2020
+#pct_fs_fema_difference_2020	percent difference between number of First Street properties and FEMA properties at risk  in 2020
+#avg_risk_score_all	average risk score of all properties
+#avg_risk_score_2_10	average risk scores from 2-10, excluding 1 (minimal risk)
+#avg_risk_fsf_2020_100	average risk score of properties with flooding in the 2020 RP 100 scenario
+#avg_risk_fsf_2020_500	average risk score of properties with flooding in the 2020 RP 500 scenario
+#avg_risk_score_sfha	average risk score of properties in a FEMA SFHA
+#avg_risk_score_no_sfha	average risk score of properties not in a FEMA SFHA
+#count_floodfactor1	number of properties with a risk score = 1
+#count_floodfactor2	number of properties with a risk score = 2
+#count_floodfactor3	number of properties with a risk score = 3
+#count_floodfactor4	number of properties with a risk score = 4
+#count_floodfactor5	number of properties with a risk score = 5
+#count_floodfactor6	number of properties with a risk score = 6
+#count_floodfactor7	number of properties with a risk score = 7
+#count_floodfactor8	number of properties with a risk score = 8
+#count_floodfactor9	number of properties with a risk score = 9
+#count_floodfactor10	number of properties with a risk score = 10
+def getFloodRisks():
+    print("loading flood risks")
+    return pd.read_csv("/mnt/scratch/datasources/first-street-climate-risk-statistics/01_DATA/Climate_Risk_Statistics/v1.3/Zip_level_risk_FEMA_FSF_v1.3.csv")
+
+
+
