@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+import sys
+import datasources
+
+df = datasources.getCDCLeadingCauseOfDeath()
+print(df)
+
+sys.exit(0)
 
 #lookup fips code from state/county name
 fips = datasources.fips()

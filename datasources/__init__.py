@@ -5,6 +5,9 @@ import os
 import json
 import glob
 
+import pandas as pd
+from sodapy import Socrata
+
 ###################################################################################################
 #
 # American community survey / census
@@ -51,6 +54,26 @@ def getCDCLifeExpectancy():
     print("loading cdc life expectancy")
     return pd.read_csv("/mnt/scratch/datasources/cdc-life-expectancy/US_B.CSV", index_col='Tract ID')
 
+def getCDCLeadingCauseOfDeath():
+    #https://data.cdc.gov/profile/edit/developer_settings
+    #apitoken="w7x08fgiw6sixsc0g5hql7oqhahslc0gkwb22v5f76pgllgsm"
+    #https://data.cdc.gov/resource/bi63-dtpu.json
+    #url="https://data.cdc.gov/resource/bi63-dtpu.json?year=2017"
+
+    #client = Socrata("data.cdc.gov", None)
+    #results = client.get("bi63-dtpu", where="year = 2017 and state = 'Indiana'", limit=2000)
+    #return pd.DataFrame.from_records(results)
+
+    #Columns
+    #Year
+    #113 Cause Name
+    #Cause Name
+    #State
+    #Deaths
+    #Age-adjusted Death Rate
+    print("loading cdc leading causes of death")
+    return pd.read_csv("/mnt/scratch/datasources/cdc-leading-causes-death/rows.csv")
+
 #columns
 #femaDeclarationString,disasterNumber,state,declarationType,declarationDate,fyDeclared,incidentType,declarationTitle,ihProgramDeclared,iaProgramDeclared,paProgramDeclared,hmProgramDeclared,incidentBeginDate,incidentEndDate,disasterCloseoutDate,fipsStateCode,fipsCountyCode,placeCode,designatedArea,declarationRequestNumber,hash,lastRefresh,id
 #
@@ -66,14 +89,18 @@ def getFEMADisasterDeclarations():
 
 #columns
 #BEGIN_YEARMONTH,BEGIN_DAY,BEGIN_TIME,END_YEARMONTH,END_DAY,END_TIME,EPISODE_ID,EVENT_ID,STATE,STATE_FIPS,YEAR,MONTH_NAME,EVENT_TYPE,CZ_TYPE,CZ_FIPS,CZ_NAME,WFO,BEGIN_DATE_TIME,CZ_TIMEZONE,END_DATE_TIME,INJURIES_DIRECT,INJURIES_INDIRECT,DEATHS_DIRECT,DEATHS_INDIRECT,DAMAGE_PROPERTY,DAMAGE_CROPS,SOURCE,MAGNITUDE,MAGNITUDE_TYPE,FLOOD_CAUSE,CATEGORY,TOR_F_SCALE,TOR_LENGTH,TOR_WIDTH,TOR_OTHER_WFO,TOR_OTHER_CZ_STATE,TOR_OTHER_CZ_FIPS,TOR_OTHER_CZ_NAME,BEGIN_RANGE,BEGIN_AZIMUTH,BEGIN_LOCATION,END_RANGE,END_AZIMUTH,END_LOCATION,BEGIN_LAT,BEGIN_LON,END_LAT,END_LON,EPISODE_NARRATIVE,EVENT_NARRATIVE,DATA_SOURCE
-def getNOAAStormEvents():
-    year=2010
-    print("loading NOAA data since 2010")
+def getNOAAStormEvents(debug=False):
+    print("loading noaa storm events")
     blocks = []
-    for path in glob.glob("/mnt/scratch/datasources/noaa-stormevent-death/csvfiles/StormEvents_details-ftp_v1.0_d20[12]*"):
+    for path in glob.glob("/mnt/scratch/datasources/noaa-stormevent-death/csvfiles/StormEvents_details-ftp_v1.0_d20[12]?_*"):
         print(path)
         blocks.append(pd.read_csv(path))
-    print("concatenating")
+
+        if debug:
+            print("only loading first one - for debug")
+            break
+
+    print("concatenating storm events")
     return pd.concat(blocks)
 
 def getZIP2FIPS():
@@ -117,5 +144,144 @@ def getFloodRisks():
     print("loading flood risks")
     return pd.read_csv("/mnt/scratch/datasources/first-street-climate-risk-statistics/01_DATA/Climate_Risk_Statistics/v1.3/Zip_level_risk_FEMA_FSF_v1.3.csv")
 
+us_state_to_abbrev = {
+    "Alabama": "AL",
+    "Alaska": "AK",
+    "Arizona": "AZ",
+    "Arkansas": "AR",
+    "California": "CA",
+    "Colorado": "CO",
+    "Connecticut": "CT",
+    "Delaware": "DE",
+    "Florida": "FL",
+    "Georgia": "GA",
+    "Hawaii": "HI",
+    "Idaho": "ID",
+    "Illinois": "IL",
+    "Indiana": "IN",
+    "Iowa": "IA",
+    "Kansas": "KS",
+    "Kentucky": "KY",
+    "Louisiana": "LA",
+    "Maine": "ME",
+    "Maryland": "MD",
+    "Massachusetts": "MA",
+    "Michigan": "MI",
+    "Minnesota": "MN",
+    "Mississippi": "MS",
+    "Missouri": "MO",
+    "Montana": "MT",
+    "Nebraska": "NE",
+    "Nevada": "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "ND",
+    "Ohio": "OH",
+    "Oklahoma": "OK",
+    "Oregon": "OR",
+    "Pennsylvania": "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    "Tennessee": "TN",
+    "Texas": "TX",
+    "Utah": "UT",
+    "Vermont": "VT",
+    "Virginia": "VA",
+    "Washington": "WA",
+    "West Virginia": "WV",
+    "Wisconsin": "WI",
+    "Wyoming": "WY",
+    "District of Columbia": "DC",
+    "American Samoa": "AS",
+    "Guam": "GU",
+    "Northern Mariana Islands": "MP",
+    "Puerto Rico": "PR",
+    "United States Minor Outlying Islands": "UM",
+    "U.S. Virgin Islands": "VI",
+}
+    
+# invert the dictionary
+abbrev_to_us_state = dict(map(reversed, us_state_to_abbrev.items()))
 
+mapNOAA2HazardID = {
+    "High Wind": "highwind",
+    "Strong Wind": "highwind",
 
+    "Heat": "heat",
+    "Excessive Heat": "heat",
+
+    "Frost/Freeze": "frostfreeze",
+    "Thunderstorm Wind": "thunderstorm",
+
+    "Hail": "hailstorm",
+    "Sleet": "sleet",
+    "Freezing Fog": "freezingfog",
+    "Dense Fog": "densefog",
+
+    "Flood": "flood",
+    "Flash Flood": "flashflood",
+    "Coastal Flood": "coastalflood",
+    "High Surf": "highsurf",
+    "Lakeshore Flood": "lakeshoreflood",
+    "Storm Surge/Tide": "stormsurge",
+    "High Surf": "highsurf",
+    "Tsunami": "tsunami",
+
+    "Extreme Cold/Wind Chill": "extremecold",
+    "Cold/Wind Chill": "extremecold",
+
+    "Ice Storm": "icestorm",
+    "Winter Storm": "winterstorm",
+    "Winter Weather": "winterweather",
+    "Blizzard": "blizzard",
+    "Heavy Snow": "heavysnow",
+    "Heavy Rain": "heavyrain",
+    "Avalanche": "avalanche",
+
+    "Lake-Effect Snow": "lakeeffectsnow",
+
+    "Lightning": "lightning",
+    "Dust Devil": "duststorm",
+    "Dust Storm": "duststorm",
+
+    "Funnel Cloud": "funnelcloud",
+    "Tornado": "tornado",
+
+    "Drought": "drought",
+    "Seiche": "seiche",
+
+    "Tropical Depression": "tropicaldepression",
+    "Tropical Storm": "tropicalstorm",
+
+    "Hurricane": "hurricane",
+    "Hurricane (Typhoon)": "hurricane",
+
+    "Wildfire": "wildfire",
+
+    "Landslide": "landslide",
+    "Debris Flow": "debrisflow",
+
+    "Rip Current": "ripcurrent",
+
+    "Dense Smoke": "smoke",
+    "Sneakerwave": "sneakerwave",
+    "Astronomical Low Tide": "lowtide",
+    "Volcanic Ashfall": "ashfall",
+}
+
+mapCDCCauses2HazardID = {
+    "Unintentional injuries": "injuries", 
+    "Alzheimer's disease": "alzheimer",
+    "Stroke": "stroke",
+    "CLRD": "clrd",
+    "Diabetes": "diabetes",
+    "Heart disease": "heart-disease",
+    "Influenza and pneumonia": "influenza",
+    "Suicide": "suicide",
+    "Cancer": "cancer",
+    "Kidney disease": "kidney-disease",
+}
