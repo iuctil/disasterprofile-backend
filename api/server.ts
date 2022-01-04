@@ -16,6 +16,7 @@ async function cacheProfiles() {
     fs.readdir(__dirname+"/../profiles", async (err, files)=>{
         if(err) throw err;
         for await (const file of files/*.splice(0, 100)*/) {
+            console.log("parsing", __dirname+"/../profiles/"+file);
             const content = fs.readFileSync(__dirname+"/../profiles/"+file, {encoding: "utf8"});
             const profile = JSON.parse(content);
             const id = file.split(".")[0];

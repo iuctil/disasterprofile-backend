@@ -3,4 +3,4 @@ Backend services and script to transform various datasoruces and produce data us
 
 # start api backend with pm2
 
- cd api && pm2 start ts-node --name api -- --type-check server.ts --watch
+cd api && pm2 start ts-node --name api -- --type-check server.ts --watch

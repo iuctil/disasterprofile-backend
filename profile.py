@@ -4,19 +4,21 @@ import us
 
 import datasources
 #import random #to fake the data
-import json
+import json #outputs NaN
+import simplejson
 import sys
 import datetime
 import os
 import time
 
+debug=False
+
 floodRisks = datasources.getFloodRisks()
-stormEvents = datasources.getNOAAStormEvents(debug=False)
+stormEvents = datasources.getNOAAStormEvents(debug=debug)
 leadingCauses = datasources.getCDCLeadingCauseOfDeath()
 
 #for col in leadingCauses.columns:
 #    print(col)
-
 
 #https://stackoverflow.com/questions/1969240/mapping-a-range-of-values-to-another
 #def translate(value, leftMin, leftMax, rightMin, rightMax):
@@ -48,24 +50,28 @@ def handleZip(row):
     ##
     ## CDC leading cause of death
     ## 
-    leading = leadingCauses[(leadingCauses.Year == 2017) & (leadingCauses.State == stateFullName)]
+    sourceYear = 2017
+    leading = leadingCauses[(leadingCauses.Year == sourceYear) & (leadingCauses.State == stateFullName)]
     allDeath = leading[leadingCauses['Cause Name'] == 'All causes']
     if len(allDeath) != 1:
         print("couldn't find CDC leading cause of death info")
     else:
-        totalDeathCount = allDeath.ilocs[0].Deaths
+        totalDeathCount = int(allDeath["Deaths"])
         for rec in leading.iloc:
             cause = rec['Cause Name']
             if cause in datasources.mapCDCCauses2HazardID:
-                hazards.append({
-                    "hazardId": datasources.mapCDCCauses2HazardID[cause],
-                    "prob": rec['Deaths'] / totalDeathCount, #TODO - how should I compute this?
-
-                    "aadr": rec['Age-adjusted Death Rate'],
-
+                hazard = {
+                    "hazardId": str(datasources.mapCDCCauses2HazardID[cause]),
+                    "prob": int(rec['Deaths']) / totalDeathCount, #TODO - how should I compute this?
+                    #"desc": f"In the year {sourceYear} there has been {rec['Deaths']} deaths reported (out of total death {totalDeathCount}) in {stateFullName} state.",
+                    "source": "CDC-COD",
+                    "sourceYear": sourceYear,
+                    "aadr": int(rec['Age-adjusted Death Rate']),
                     "deaths": int(rec['Deaths']),
                     "totalDeaths": int(totalDeathCount),
-                })
+                }
+                print(hazard)
+                hazards.append(hazard)
             elif cause == "All causes":
                 None
             else:
@@ -196,26 +202,22 @@ def handleZip(row):
     #compute propability of having various storm event each year
     thisyear = datetime.date.today().year
     for TYPE in stormCounts:
-        #print(TYPE, stormCounts[TYPE])
-
         experiencedYears = 0
         for year in range(2010, thisyear):
             if year in stormCounts[TYPE]:
                 if stormCounts[TYPE][year] > 0:
                     experiencedYears+=1
-            #else:
-            #    stormCounts[TYPE][year] = 0
 
-        #print(TYPE, experiencedYears)
-        totalYears = thisyear - 2010
-
-        hazards.append({
-            "hazardId": TYPE, 
+        totalYears = thisyear - 2010;
+        hazard = {
+            "hazardId": str(TYPE), 
             "prob": experiencedYears / totalYears,
-
+            #"desc": f"Your county has experienced {TYPE} events in {experiencedYears} out of the last {totalYears} years",
+            "source": "NOAA-STORM-EVENTS",
             "experiencedYears": experiencedYears,
             "totalYears": totalYears,
-        })
+        }
+        hazards.append(hazard)
 
     ###########################################################################
     ##
@@ -227,12 +229,13 @@ def handleZip(row):
         'city': row.CITY,
         'county': row.COUNTYNAME,
         'fips': row.STCOUNTYFP,
-        #'location': {'lat': -11.222, 'lon': 33.444 },
         'noaa': stormCounts,
         'hazards': hazards,
-        'floodRisk': floodRisk,
-    }
+        #'floodRisk': floodRisk,
 
+        #TODO..
+        #'location': {'lat': -11.222, 'lon': 33.444 },
+    }
 
 profileDir="profiles"
 
@@ -258,7 +261,7 @@ for index, row in zip2fips.iterrows():
             continue
 
     profile = handleZip(row)
-    print(json.dumps(profile, indent=4))
+    print(simplejson.dumps(profile, indent=4))
 
     #print("row")
     #print(floodRiskRows.to_string())
@@ -280,6 +283,5 @@ for index, row in zip2fips.iterrows():
     #print(stormEvents[(stormEvents.STATE_FIPS == "18") & (stormEvents.CZ_FIPS == "117")])
     
     with open(path, 'w') as outfile:
-        json.dump(profile, outfile) 
-
+        simplejson.dump(profile, outfile, ignore_nan=True, indent=4) 
 
