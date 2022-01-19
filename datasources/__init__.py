@@ -35,8 +35,13 @@ def fips():
     
 #census_block_group	amount_land	amount_water	latitude	longitude
 def acsgeo():
-    print("loading acs-census geographics data")
+    #print("loading acs-census geographics data")
     return pd.read_csv("/mnt/scratch/datasources/acs-census/safegraph_open_census_data_2019/metadata/cbg_geographic_data.csv")
+
+def getHospitalUtilizations():
+    print("loading hospital utilizations")
+    raw = pd.read_csv("/mnt/scratch/datasources/healthdata.gov/utilizations.csv")
+    return raw.replace(-999999,None)
 
 # search by census block group
 def geojsonByCBG(cbg):

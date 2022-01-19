@@ -13,44 +13,17 @@ import time
 
 debug=False
 
+hospitalUtilizations = datasources.getHospitalUtilizations()
+#print(hospitalUtilizations[hospitalUtilizations.fips_code == 18105])
+
 floodRisks = datasources.getFloodRisks()
 stormEvents = datasources.getNOAAStormEvents(debug=debug)
 leadingCauses = datasources.getCDCLeadingCauseOfDeath()
 
-#for col in leadingCauses.columns:
-#    print(col)
+def handleCDCCausesOfDeath(row, hazards):
 
-#https://stackoverflow.com/questions/1969240/mapping-a-range-of-values-to-another
-#def translate(value, leftMin, leftMax, rightMin, rightMax):
-#    # Figure out how 'wide' each range is
-#    leftSpan = leftMax - leftMin
-#    rightSpan = rightMax - rightMin
-#
-#    # Convert the left range into a 0-1 range (float)
-#    valueScaled = float(value - leftMin) / float(leftSpan)
-#
-#    # Convert the 0-1 range into a value in the right range.
-#    return rightMin + (valueScaled * rightSpan)
-
-def handleZip(row):
-
-    stateFullName = datasources.abbrev_to_us_state[row.STATE]
-    STATE_FIPS=int(row.STCOUNTYFP/1000)
-    CZ_FIPS=row.STCOUNTYFP-(STATE_FIPS*1000)
-
-    print("-----------------------------------------------------------------------")
-    print(f"-- fips:{row.STCOUNTYFP} | {stateFullName} | {row.COUNTYNAME} | {row.CITY} | zip:{row.ZIP}")
-    print("-----------------------------------------------------------------------")
-
-    hazards = [
-        #{"hazardId": "sinkhole", "prob": random.random()},
-    ]
-
-    ###########################################################################
-    ##
-    ## CDC leading cause of death
-    ## 
     sourceYear = 2017
+    stateFullName = datasources.abbrev_to_us_state[row.STATE]
     leading = leadingCauses[(leadingCauses.Year == sourceYear) & (leadingCauses.State == stateFullName)]
     allDeath = leading[leadingCauses['Cause Name'] == 'All causes']
     if len(allDeath) != 1:
@@ -77,8 +50,7 @@ def handleZip(row):
             else:
                 print("ignoring cdc leading cause", cause)
 
-    #print("leading causes of deaths")
-    #print(leading)
+def handleFloodRisks(row, hazards):
 
     ###########################################################################
     ##
@@ -129,10 +101,13 @@ def handleZip(row):
     else:
         print("couldn't find floodRisk information")
 
-    ###########################################################################
-    ##
-    ## count NOAA storm events
-    ## 
+    return floodRisk
+
+def handleStormEvents(row, hazards):
+
+    STATE_FIPS=int(row.STCOUNTYFP/1000)
+    CZ_FIPS=row.STCOUNTYFP-(STATE_FIPS*1000)
+
     events = stormEvents[(stormEvents.STATE_FIPS == STATE_FIPS) & (stormEvents.CZ_FIPS == CZ_FIPS)]
     stormCounts = {}
     for rec in events.iloc:
@@ -219,69 +194,121 @@ def handleZip(row):
         }
         hazards.append(hazard)
 
-    ###########################################################################
-    ##
-    ## Finally put things together
-    ## 
+    return stormCounts
+
+def processHospitalUtilization(row):
+    hrows = hospitalUtilizations[hospitalUtilizations.fips_code == row.STCOUNTYFP]
+    #hospitalsGrouped = hospitals.groupby(by=hospitalUtilizations.hospital_pk)
+    #print(hospitalsGrouped)
+    hospitals = {}
+    for index, hrow in hrows.iterrows():
+        pk=hrow['hospital_pk']
+        if not pk in hospitals:
+            hospitals[pk] = {
+                'name': hrow['hospital_name'],
+                'address': hrow['address'],
+                'city': hrow['city'],
+                'state': hrow['state'],
+                'zip': hrow['zip'],
+                'data': []
+            }
+
+        hospitals[pk]['data'].append({
+            #'total_beds_7_day_avg': hrow['total_beds_7_day_avg'],
+            'collection_week': hrow['collection_week'],
+
+            'inpatient_beds_7_day_avg': hrow['inpatient_beds_7_day_avg'],
+            'inpatient_beds_used_7_day_avg': hrow['inpatient_beds_used_7_day_avg'],
+            
+            'total_icu_beds_7_day_avg': hrow['total_icu_beds_7_day_avg'],
+            'icu_beds_used_7_day_avg': hrow['icu_beds_used_7_day_avg'],
+        })
+
+    return hospitals
+
+def handleZip(row):
+
+    stateFullName = datasources.abbrev_to_us_state[row.STATE]
+
+    print("-----------------------------------------------------------------------")
+    print(f"-- fips:{row.STCOUNTYFP} | {stateFullName} | {row.COUNTYNAME} | {row.CITY} | zip:{row.ZIP}")
+    print("-----------------------------------------------------------------------")
+
+    hazards = []
+
+    handleCDCCausesOfDeath(row, hazards)
+    stormCounts = handleStormEvents(row, hazards)
+    #handleFloodRisk = floodRisks(row, hazards)
+
+    #pick hospital utilization info for the county
+    hospitals = processHospitalUtilization(row)
+
     return {
         'zip': row.ZIP, 
-        'state': row.STATE,
+        'state': stateFullName,
+        'state2': row.STATE,
         'city': row.CITY,
         'county': row.COUNTYNAME,
         'fips': row.STCOUNTYFP,
+
         'noaa': stormCounts,
         'hazards': hazards,
         #'floodRisk': floodRisk,
+
+        'hospitals': hospitals,
 
         #TODO..
         #'location': {'lat': -11.222, 'lon': 33.444 },
     }
 
-profileDir="profiles"
 
 #ZIP,STCOUNTYFP,CITY,STATE,COUNTYNAME,CLASSFP
 #36091,01001,Verbena,AL,Autauga County,H1
 
-zip2fips = datasources.getZIP2FIPS()
-for index, row in zip2fips.iterrows():
-    #ZIP                     72545
-    #STCOUNTYFP               5023
-    #CITY            Heber springs
-    #STATE                      AR
-    #COUNTYNAME    Cleburne County
-    #CLASSFP                    H1
-    #Name: 2045, dtype: object
-    path = profileDir+f'/zip-{row.ZIP}.json'
+def run():
+    zip2fips = datasources.getZIP2FIPS()
+    profileDir="profiles"
+    for index, row in zip2fips.iterrows():
+        #ZIP                     72545
+        #STCOUNTYFP               5023
+        #CITY            Heber springs
+        #STATE                      AR
+        #COUNTYNAME    Cleburne County
+        #CLASSFP                    H1
+        #Name: 2045, dtype: object
+        path = profileDir+f'/zip-{row.ZIP}.json'
 
-    if os.path.exists(path):
-        now = time.time()
-        old = now - 3600*24*7
-        if os.path.getmtime(path) > old:
-            print("fresh profile exists.. skipping", path)
-            continue
+        if os.path.exists(path):
+            now = time.time()
+            old = now - 3600*24*7
+            #old = now - 60 
+            if os.path.getmtime(path) > old:
+                print("fresh profile exists.. skipping", path)
+                continue
 
-    profile = handleZip(row)
-    print(simplejson.dumps(profile, indent=4))
+        profile = handleZip(row)
+        print(simplejson.dumps(profile, indent=4))
 
-    #print("row")
-    #print(floodRiskRows.to_string())
-    #print("average risk score")
-    #print(floodRisk.avg_risk_score_all) #average risk score of all properties
+        #print("row")
+        #print(floodRiskRows.to_string())
+        #print("average risk score")
+        #print(floodRisk.avg_risk_score_all) #average risk score of all properties
 
-    #floodRisk = None
-    #if len(floodRiskRows.index) == 1:
-    #    #floodRisk = translate(floodRiskRows.iloc[0].avg_risk_score_all, 1, 10, 0, 1)
-    #    #TODO - I am not sure how to translate avg_risk_score_all to percentile (max is 10.0)
-    #    floodRisk = floodRiskRows.iloc[0].avg_risk_score_all/10 
-    #    #print(f"average flood risk score of all properties {floodRisk}")
+        #floodRisk = None
+        #if len(floodRiskRows.index) == 1:
+        #    #floodRisk = translate(floodRiskRows.iloc[0].avg_risk_score_all, 1, 10, 0, 1)
+        #    #TODO - I am not sure how to translate avg_risk_score_all to percentile (max is 10.0)
+        #    floodRisk = floodRiskRows.iloc[0].avg_risk_score_all/10 
+        #    #print(f"average flood risk score of all properties {floodRisk}")
 
-    #print("min", floodRisks.avg_risk_score_all.min())
-    #print("max", floodRisks.avg_risk_score_all.max())
+        #print("min", floodRisks.avg_risk_score_all.min())
+        #print("max", floodRisks.avg_risk_score_all.max())
 
-    #fips = zip2fips[zip2fips.ZIP == "47403"]
-    #print(fips)
-    #print(stormEvents[(stormEvents.STATE_FIPS == "18") & (stormEvents.CZ_FIPS == "117")])
-    
-    with open(path, 'w') as outfile:
-        simplejson.dump(profile, outfile, ignore_nan=True, indent=4) 
+        #fips = zip2fips[zip2fips.ZIP == "47403"]
+        #print(fips)
+        #print(stormEvents[(stormEvents.STATE_FIPS == "18") & (stormEvents.CZ_FIPS == "117")])
+        
+        with open(path, 'w') as outfile:
+            simplejson.dump(profile, outfile, ignore_nan=True, indent=4) 
 
+run()

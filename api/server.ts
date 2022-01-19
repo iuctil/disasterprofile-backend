@@ -7,6 +7,7 @@ import fs from 'fs';
 interface IProfile {
     id: string
     name: string
+    //long: string 
 }
 
 //create a catalog of profileKeys
@@ -20,12 +21,12 @@ async function cacheProfiles() {
             const content = fs.readFileSync(__dirname+"/../profiles/"+file, {encoding: "utf8"});
             const profile = JSON.parse(content);
             const id = file.split(".")[0];
-            console.log(id, file);
             //console.dir(profile);
             //TODO - I probably need to parse each profile and load proper name/zip code etc..
             profileKeys.push({
                 id,
                 name: profile.city+", "+profile.state+" "+profile.zip,
+                //other: profile.stateAbb+" "+profile.fips, //let user search by other fields
             });
         }
         console.log("loaded", profileKeys.length, "profiles");
@@ -38,10 +39,17 @@ console.log("starting express server..");
 const app = express();
 app.use(cors())
 
+app.get('/health', (req, res)=>{
+    res.json({
+        profiles: profileKeys.length,
+        status: "ok",
+    });
+});
+
 app.get('/profile/keys', (req, res)=>{
     const query = req.query.q?.toString().toLowerCase();
 
-    console.log("reseived /profile/keys request", query);
+    console.log("received /profile/keys request", query);
 
     if(!query?.length) return res.status(500).send("query too short");
 

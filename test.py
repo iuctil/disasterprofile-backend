@@ -3,10 +3,14 @@
 import sys
 import datasources
 
+zips = datasources.getZIP2FIPS()
+print(zips)
+
+sys.exit(0)
+
 df = datasources.getCDCLeadingCauseOfDeath()
 print(df)
 
-sys.exit(0)
 
 #lookup fips code from state/county name
 fips = datasources.fips()
