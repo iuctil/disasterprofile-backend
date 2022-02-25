@@ -4,7 +4,7 @@ import us
 
 import datasources
 #import random #to fake the data
-import json #outputs NaN
+#import json #outputs NaN
 import simplejson
 import sys
 import datetime
@@ -12,6 +12,9 @@ import os
 import time
 
 debug=False
+    
+zip2fips = datasources.getZIP2FIPS()
+profileDir="profiles"
 
 hospitalUtilizations = datasources.getHospitalUtilizations()
 #print(hospitalUtilizations[hospitalUtilizations.fips_code == 18105])
@@ -20,7 +23,11 @@ floodRisks = datasources.getFloodRisks()
 stormEvents = datasources.getNOAAStormEvents(debug=debug)
 leadingCauses = datasources.getCDCLeadingCauseOfDeath()
 
-def handleCDCCausesOfDeath(row, hazards):
+#load state wide cause of death.. could have multiple states
+def handleCDCCausesOfDeath(zipcode, rows, hazards):
+
+    #TODO - multi state zip codes are rare... so let's just pick the first state
+    row = rows.iloc[0]
 
     sourceYear = 2017
     stateFullName = datasources.abbrev_to_us_state[row.STATE]
@@ -43,7 +50,6 @@ def handleCDCCausesOfDeath(row, hazards):
                     "deaths": int(rec['Deaths']),
                     "totalDeaths": int(totalDeathCount),
                 }
-                print(hazard)
                 hazards.append(hazard)
             elif cause == "All causes":
                 None
@@ -103,12 +109,19 @@ def handleFloodRisks(row, hazards):
 
     return floodRisk
 
-def handleStormEvents(row, hazards):
+def handleStormEvents(zipcode, rows, hazards):
 
-    STATE_FIPS=int(row.STCOUNTYFP/1000)
-    CZ_FIPS=row.STCOUNTYFP-(STATE_FIPS*1000)
+    #aggregate list of CZ_FIPS
+    cz_fips = []
+    for index, row in rows.iterrows():
+        STATE_FIPS=int(row.STCOUNTYFP/1000)
+        CZ_FIPS=row.STCOUNTYFP-(STATE_FIPS*1000)
+        cz_fips.append(CZ_FIPS)
 
-    events = stormEvents[(stormEvents.STATE_FIPS == STATE_FIPS) & (stormEvents.CZ_FIPS == CZ_FIPS)]
+    #print(cz_fips)
+    events = stormEvents[(stormEvents.STATE_FIPS == STATE_FIPS) & (stormEvents.CZ_FIPS.isin(cz_fips))]
+    #print(events)
+
     stormCounts = {}
     for rec in events.iloc:
         #BEGIN_YEARMONTH                                                  201101
@@ -196,10 +209,13 @@ def handleStormEvents(row, hazards):
 
     return stormCounts
 
-def processHospitalUtilization(row):
-    hrows = hospitalUtilizations[hospitalUtilizations.fips_code == row.STCOUNTYFP]
-    #hospitalsGrouped = hospitals.groupby(by=hospitalUtilizations.hospital_pk)
-    #print(hospitalsGrouped)
+def processHospitalUtilization(zipcode, rows):
+    #aggregate list of CZ_FIPS
+    cz = []
+    for index, row in rows.iterrows():
+        cz.append(row.STCOUNTYFP)
+
+    hrows = hospitalUtilizations[hospitalUtilizations.fips_code.isin(cz)]
     hospitals = {}
     for index, hrow in hrows.iterrows():
         pk=hrow['hospital_pk']
@@ -226,40 +242,43 @@ def processHospitalUtilization(row):
 
     return hospitals
 
-def handleZip(row):
+def handleZip(zipcode, rows):
 
-    stateFullName = datasources.abbrev_to_us_state[row.STATE]
+    print(zipcode, "----------------------------------")
 
-    print("-----------------------------------------------------------------------")
-    print(f"-- fips:{row.STCOUNTYFP} | {stateFullName} | {row.COUNTYNAME} | {row.CITY} | zip:{row.ZIP}")
-    print("-----------------------------------------------------------------------")
-
+    counties = []
+    for index, row in rows.iterrows():
+        print(f"-- fips:{row.STCOUNTYFP} | {row.STATE} | {row.COUNTYNAME} | {row.CITY}")
+        counties.append({
+            'state2': row.STATE, #what is this used for?
+            'state': datasources.abbrev_to_us_state[row.STATE],
+            'city': row.CITY,
+            'county': row.COUNTYNAME,
+            'fips': row.STCOUNTYFP,
+        })
+    
     hazards = []
 
-    handleCDCCausesOfDeath(row, hazards)
-    stormCounts = handleStormEvents(row, hazards)
-    #handleFloodRisk = floodRisks(row, hazards)
+    handleCDCCausesOfDeath(zipcode, rows, hazards)
+    stormCounts = handleStormEvents(zipcode, rows, hazards)
+    #handleFloodRisk = floodRisks(zipcode, rows, hazards)
 
     #pick hospital utilization info for the county
-    hospitals = processHospitalUtilization(row)
+    hospitals = processHospitalUtilization(zipcode, rows)
 
     return {
-        'zip': row.ZIP, 
-        'state': stateFullName,
-        'state2': row.STATE,
-        'city': row.CITY,
-        'county': row.COUNTYNAME,
-        'fips': row.STCOUNTYFP,
-
+        'zip': int(zipcode),
+        'counties': counties,
         'noaa': stormCounts,
         'hazards': hazards,
-        #'floodRisk': floodRisk,
-
         'hospitals': hospitals,
-
-        #TODO..
-        #'location': {'lat': -11.222, 'lon': 33.444 },
     }
+
+    #'state': stateFullNames,
+    #'state2': states,
+    #'city': row.CITY,
+    #'county': row.COUNTYNAME,
+    #'fips': row.STCOUNTYFP,
 
 
 #ZIP,STCOUNTYFP,CITY,STATE,COUNTYNAME,CLASSFP
@@ -268,7 +287,15 @@ def handleZip(row):
 def run():
     zip2fips = datasources.getZIP2FIPS()
     profileDir="profiles"
-    for index, row in zip2fips.iterrows():
+
+    zips = zip2fips['ZIP'].unique()
+
+    #for index, row in fips.iterrows():
+
+    #a zip code could belong to multiple counties
+    for zipcode in zips:
+        rows = zip2fips[zip2fips.ZIP == zipcode]
+
         #ZIP                     72545
         #STCOUNTYFP               5023
         #CITY            Heber springs
@@ -276,7 +303,7 @@ def run():
         #COUNTYNAME    Cleburne County
         #CLASSFP                    H1
         #Name: 2045, dtype: object
-        path = profileDir+f'/zip-{row.ZIP}.json'
+        path = profileDir+f'/zip-{zipcode}.json'
 
         if os.path.exists(path):
             now = time.time()
@@ -286,29 +313,13 @@ def run():
                 print("fresh profile exists.. skipping", path)
                 continue
 
-        profile = handleZip(row)
-        print(simplejson.dumps(profile, indent=4))
+        profile = handleZip(zipcode, rows)
+        print(profile)
 
-        #print("row")
-        #print(floodRiskRows.to_string())
-        #print("average risk score")
-        #print(floodRisk.avg_risk_score_all) #average risk score of all properties
-
-        #floodRisk = None
-        #if len(floodRiskRows.index) == 1:
-        #    #floodRisk = translate(floodRiskRows.iloc[0].avg_risk_score_all, 1, 10, 0, 1)
-        #    #TODO - I am not sure how to translate avg_risk_score_all to percentile (max is 10.0)
-        #    floodRisk = floodRiskRows.iloc[0].avg_risk_score_all/10 
-        #    #print(f"average flood risk score of all properties {floodRisk}")
-
-        #print("min", floodRisks.avg_risk_score_all.min())
-        #print("max", floodRisks.avg_risk_score_all.max())
-
-        #fips = zip2fips[zip2fips.ZIP == "47403"]
-        #print(fips)
-        #print(stormEvents[(stormEvents.STATE_FIPS == "18") & (stormEvents.CZ_FIPS == "117")])
-        
+        #print(simplejson.dumps(profile, indent=4))
+        print(simplejson.dumps(profile, indent=4, ignore_nan=False))
+       
         with open(path, 'w') as outfile:
-            simplejson.dump(profile, outfile, ignore_nan=True, indent=4) 
+            simplejson.dump(profile, outfile, ignore_nan=False, indent=4) 
 
 run()
