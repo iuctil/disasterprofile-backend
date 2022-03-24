@@ -254,7 +254,7 @@ def handleZip(zipcode, rows):
             'state': datasources.abbrev_to_us_state[row.STATE],
             'city': row.CITY,
             'county': row.COUNTYNAME,
-            'fips': row.STCOUNTYFP,
+            'fips': '%03d' % row.STCOUNTYFP, #STCOUNTYFP is not 0-padded..
         })
     
     hazards = []
@@ -317,9 +317,9 @@ def run():
         print(profile)
 
         #print(simplejson.dumps(profile, indent=4))
-        print(simplejson.dumps(profile, indent=4, ignore_nan=False))
+        print(simplejson.dumps(profile, indent=4, ignore_nan=True))
        
         with open(path, 'w') as outfile:
-            simplejson.dump(profile, outfile, ignore_nan=False, indent=4) 
+            simplejson.dump(profile, outfile, ignore_nan=True, indent=4) 
 
 run()
