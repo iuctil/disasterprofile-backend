@@ -259,8 +259,11 @@ def handleZip(zipcode, rows):
     
     hazards = []
 
-    handleCDCCausesOfDeath(zipcode, rows, hazards)
+    #we load this at runtime for each age/gender/(and state in the future?)
+    #handleCDCCausesOfDeath(zipcode, rows, hazards)
+
     stormCounts = handleStormEvents(zipcode, rows, hazards)
+
     #handleFloodRisk = floodRisks(zipcode, rows, hazards)
 
     #pick hospital utilization info for the county
